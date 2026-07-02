@@ -858,3 +858,81 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- Header rows + checkbox --- */
+
+.header-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.header-row-key,
+.header-row-val {
+  flex: 1;
+}
+
+.header-row .btn-danger-sm {
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.header-add {
+  align-self: flex-start;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.form-checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.form-checkbox input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.form-checkbox span {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.form-checkbox code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.provider-meta-headers dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.provider-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.provider-edit-form {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}

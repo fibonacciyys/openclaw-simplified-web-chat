@@ -22,6 +22,8 @@ export type ProviderEntry = {
   apiKey?: string;
   auth?: string;
   api?: string;
+  authHeader?: boolean;
+  headers?: Record<string, string>;
   agentRuntime?: { id?: string };
   models: ProviderModel[];
 };
@@ -47,11 +49,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function asProviderEntry(raw: unknown): ProviderEntry {
   if (!isPlainObject(raw)) return { models: [] };
   const models = Array.isArray(raw.models) ? raw.models.map(asProviderModel) : [];
+  const headers = isPlainObject(raw.headers)
+    ? (Object.fromEntries(
+        Object.entries(raw.headers).filter(([, v]) => typeof v === "string"),
+      ) as Record<string, string>)
+    : undefined;
   return {
     baseUrl: typeof raw.baseUrl === "string" ? raw.baseUrl : undefined,
     apiKey: typeof raw.apiKey === "string" ? raw.apiKey : undefined,
     auth: typeof raw.auth === "string" ? raw.auth : undefined,
     api: typeof raw.api === "string" ? raw.api : undefined,
+    authHeader: typeof raw.authHeader === "boolean" ? raw.authHeader : undefined,
+    headers,
     agentRuntime: isPlainObject(raw.agentRuntime)
       ? { id: typeof raw.agentRuntime.id === "string" ? raw.agentRuntime.id : undefined }
       : undefined,
@@ -116,13 +125,17 @@ export const useProvidersStore = defineStore("providers", () => {
     return JSON.stringify(patch);
   }
 
-  async function patchConfig(patch: Record<string, unknown>): Promise<void> {
+  async function patchConfig(
+    patch: Record<string, unknown>,
+    replacePaths?: string[],
+  ): Promise<void> {
     saving.value = true;
     error.value = null;
     try {
       await client().request("config.patch", {
         raw: buildPatch(patch),
         ...(baseHash.value ? { baseHash: baseHash.value } : {}),
+        ...(replacePaths && replacePaths.length > 0 ? { replacePaths } : {}),
       });
       await load();
     } catch (err) {
@@ -147,12 +160,68 @@ export const useProvidersStore = defineStore("providers", () => {
     if (entry.apiKey) providerPayload.apiKey = entry.apiKey;
     if (entry.auth) providerPayload.auth = entry.auth;
     if (entry.api) providerPayload.api = entry.api;
+    if (entry.authHeader !== undefined) providerPayload.authHeader = entry.authHeader;
+    if (entry.headers) providerPayload.headers = entry.headers;
     if (entry.agentRuntime?.id) providerPayload.agentRuntime = { id: entry.agentRuntime.id };
     providerPayload.models = entry.models.filter((m) => m.id.trim()).map((m) => ({
       id: m.id.trim(),
       ...(m.name ? { name: m.name } : {}),
     }));
     await patchConfig({ models: { providers: { [trimmedId]: providerPayload } } });
+  }
+
+  async function updateProvider(
+    id: string,
+    entry: ProviderEntry,
+    original: ProviderEntry,
+  ): Promise<void> {
+    const providerPayload: Record<string, unknown> = {};
+
+    // Scalar fields: send new value, or null to clear an existing one.
+    if (entry.baseUrl) providerPayload.baseUrl = entry.baseUrl;
+    else if (original.baseUrl) providerPayload.baseUrl = null;
+
+    // apiKey: send new value if typed; otherwise echo the redacted sentinel so
+    // the server restores the original (do nothing if there was no key).
+    if (entry.apiKey) {
+      providerPayload.apiKey = entry.apiKey;
+    } else if (original.apiKey) {
+      providerPayload.apiKey = original.apiKey;
+    }
+
+    if (entry.auth) providerPayload.auth = entry.auth;
+    if (entry.api) providerPayload.api = entry.api;
+    providerPayload.authHeader = entry.authHeader ?? false;
+
+    // headers (record): merge-patch with null for deleted keys. Unchanged
+    // redacted values are echoed as the sentinel so the server restores them.
+    const headerPatch: Record<string, unknown> = {};
+    const originalHeaders = original.headers ?? {};
+    const newHeaders = entry.headers ?? {};
+    for (const key of Object.keys(originalHeaders)) {
+      if (!(key in newHeaders)) headerPatch[key] = null;
+    }
+    for (const [key, value] of Object.entries(newHeaders)) {
+      if (value) headerPatch[key] = value;
+      else if (originalHeaders[key]) headerPatch[key] = originalHeaders[key];
+    }
+    if (Object.keys(headerPatch).length > 0) providerPayload.headers = headerPatch;
+
+    if (entry.agentRuntime?.id) {
+      providerPayload.agentRuntime = { id: entry.agentRuntime.id };
+    }
+
+    providerPayload.models = entry.models
+      .filter((m) => m.id.trim())
+      .map((m) => ({ id: m.id.trim(), ...(m.name ? { name: m.name } : {}) }));
+
+    // Models is an id-keyed array; mergeObjectArraysById would keep stale
+    // entries, so force a full replace of this provider's models array.
+    const replacePaths = [`models.providers.${id}.models`];
+    await patchConfig(
+      { models: { providers: { [id]: providerPayload } } },
+      replacePaths,
+    );
   }
 
   async function deleteProvider(id: string): Promise<void> {
@@ -185,6 +254,7 @@ export const useProvidersStore = defineStore("providers", () => {
     providerIds,
     load,
     addProvider,
+    updateProvider,
     deleteProvider,
     setDefaultModel,
     show,
