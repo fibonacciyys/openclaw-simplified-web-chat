@@ -71,8 +71,8 @@ export type GatewayConnectAuth = {
 };
 
 export type GatewayConnectParams = {
-  minProtocol: 3;
-  maxProtocol: 3;
+  minProtocol: number;
+  maxProtocol: number;
   client: GatewayConnectClientInfo;
   role: "operator";
   scopes: string[];
@@ -111,10 +111,16 @@ export type GatewayHelloOk = {
 export type ChatEventPayload = {
   runId?: string;
   sessionKey: string;
+  agentId?: string;
   spawnedBy?: string;
   seq?: number;
   state: "delta" | "final" | "aborted" | "error";
   message?: unknown;
+  // Protocol v4 delta fields (packages/gateway-protocol/src/schema/logs-chat.ts):
+  // `deltaText` is the incremental chunk; `replace: true` marks a full-content
+  // refresh. `message` carries the cumulative snapshot when present.
+  deltaText?: string;
+  replace?: boolean;
   errorMessage?: string;
   errorKind?: "refusal" | "timeout" | "rate_limit" | "context_length" | "unknown";
   usage?: unknown;
@@ -128,7 +134,18 @@ export type ContentBlock = {
   text?: string;
   thinking?: string;
   textSignature?: string;
-  // tool / image / attachment fields exist but are out of scope for this client.
+  // Tool-use / tool-result fields (mirrors src/shared/chat-message-content.ts).
+  name?: string;
+  toolCallId?: string;
+  tool_call_id?: string;
+  callId?: string;
+  id?: string;
+  arguments?: unknown;
+  args?: unknown;
+  input?: unknown;
+  content?: string | ContentBlock[];
+  isError?: boolean;
+  is_error?: boolean;
 };
 
 export type TranscriptMessage = {
@@ -137,6 +154,11 @@ export type TranscriptMessage = {
   text?: string;
   timestamp?: number;
   id?: string;
+  // Top-level tool-call id for standalone tool-result messages (role: tool).
+  toolCallId?: string;
+  tool_call_id?: string;
+  toolName?: string;
+  tool_name?: string;
 };
 
 export type ChatSendParams = {

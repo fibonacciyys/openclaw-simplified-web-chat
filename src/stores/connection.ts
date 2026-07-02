@@ -79,15 +79,27 @@ export const useConnectionStore = defineStore("connection", () => {
     lastError.value = null;
   }
 
-  function handleHello(helloOk: GatewayHelloOk): void {
+  async function handleHello(helloOk: GatewayHelloOk): Promise<void> {
     hello.value = helloOk;
     status.value = "connected";
     lastError.value = null;
     const sessions = useSessionsStore();
-    void sessions.load();
-    void sessions.subscribe();
     const chat = useChatStore();
-    void chat.loadHistory();
+    // Load the session index first, then resolve which session to render.
+    await sessions.load();
+    void sessions.subscribe();
+    const current = chat.sessionKey;
+    const exists = sessions.sessions.some((s) => s.key === current);
+    if (exists || sessions.sessions.length === 0) {
+      // Persisted key is still listed, or there is nothing to fall back to.
+      // chat.history reads the transcript by key and does not require the
+      // session to appear in the active list, so try it directly.
+      await chat.loadHistory();
+    } else {
+      // Persisted key no longer exists: fall back to the most recent session
+      // (sessions.list is sorted newest-first by updatedAt).
+      await chat.setSession(sessions.sessions[0]!.key);
+    }
   }
 
   function handleClose(info: GatewayCloseInfo): void {

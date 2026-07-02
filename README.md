@@ -1,12 +1,12 @@
 # OpenClaw Web Chat
 
-A standalone web chat client that uses the [OpenClaw](https://github.com/openclaw/openclaw) gateway as its backend over the WebSocket protocol (v3). It mirrors the OpenClaw control-UI chat flow: per-session transcripts, streaming assistant replies, and markdown rendering (markdown-it + DOMPurify).
+A standalone web chat client that uses the [OpenClaw](https://github.com/openclaw/openclaw) gateway as its backend over the WebSocket protocol (v4). It mirrors the OpenClaw control-UI chat flow: per-session transcripts, streaming assistant replies, and markdown rendering (markdown-it + DOMPurify).
 
 This is an independent frontend (Vue 3 + Vite + TypeScript) and is **not** part of the OpenClaw workspace. It connects to a running gateway as a regular operator client.
 
 ## Features
 
-- WebSocket connect with the v3 handshake, including Ed25519 device-identity signing of the `connect.challenge` nonce (so it pairs/auto-approves on loopback like the control UI).
+- WebSocket connect with the v4 handshake, including Ed25519 device-identity signing of the `connect.challenge` nonce (so it pairs/auto-approves on loopback like the control UI).
 - Session list (`sessions.list`) + new conversation (`sessions.create`) + live `sessions.changed` updates.
 - Chat: send (`chat.send`), abort (`chat.abort`), history (`chat.history`), and streaming `chat` events (`delta` → `final`/`aborted`/`error`).
 - Markdown rendering aligned with the control UI (markdown-it + DOMPurify allowlist, task lists, link/image hardening).

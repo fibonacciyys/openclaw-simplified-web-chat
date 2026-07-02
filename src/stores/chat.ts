@@ -40,8 +40,50 @@ function synthesizeAssistant(text: string): TranscriptMessage {
   };
 }
 
+// Resolves the streaming chat text from a v4 `chat` delta event.
+// Mirrors ui/src/ui/controllers/chat.ts resolveDeltaChatStreamText: the server
+// may send an incremental `deltaText` chunk, a cumulative `message` snapshot,
+// or a full-content refresh (`replace: true`).
+function resolveDeltaChatStreamText(
+  currentStream: string | null,
+  payload: ChatEventPayload,
+): string | null {
+  const snapshot = payload.message == null ? null : extractText(payload.message);
+  if (typeof payload.deltaText === "string") {
+    if (payload.replace === true) {
+      return payload.deltaText;
+    }
+    if (currentStream === null) {
+      return typeof snapshot === "string" ? snapshot : payload.deltaText;
+    }
+    if (typeof snapshot === "string") {
+      const prefixLength = snapshot.length - payload.deltaText.length;
+      if (
+        prefixLength !== currentStream.length ||
+        snapshot.slice(0, prefixLength) !== currentStream
+      ) {
+        return snapshot;
+      }
+    }
+    return `${currentStream}${payload.deltaText}`;
+  }
+  return typeof snapshot === "string" ? snapshot : null;
+}
+
+const SESSION_KEY_STORAGE = "openclaw-webchat-session-v1";
+
+function readPersistedSessionKey(): string {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY_STORAGE);
+    if (raw && raw.trim()) return raw;
+  } catch {
+    // ignore
+  }
+  return "main";
+}
+
 export const useChatStore = defineStore("chat", () => {
-  const sessionKey = ref("main");
+  const sessionKey = ref(readPersistedSessionKey());
   const messages = ref<TranscriptMessage[]>([]);
   const chatStream = ref<string | null>(null);
   const chatRunId = ref<string | null>(null);
@@ -72,6 +114,11 @@ export const useChatStore = defineStore("chat", () => {
 
   async function setSession(key: string): Promise<void> {
     sessionKey.value = key;
+    try {
+      localStorage.setItem(SESSION_KEY_STORAGE, key);
+    } catch {
+      // ignore
+    }
     chatRunId.value = null;
     chatStream.value = null;
     chatSending.value = false;
@@ -155,7 +202,7 @@ export const useChatStore = defineStore("chat", () => {
     }
 
     if (p.state === "delta") {
-      const next = extractText(p.message);
+      const next = resolveDeltaChatStreamText(chatStream.value, p);
       if (next && !isSilentReply(next)) chatStream.value = next;
       return;
     }

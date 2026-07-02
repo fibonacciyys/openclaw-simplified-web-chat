@@ -5,7 +5,6 @@ import type { SessionRow, SessionsCreateResult, SessionsListResult } from "../li
 import { useConnectionStore } from "./connection";
 import { useChatStore } from "./chat";
 
-const ACTIVE_MINUTES = 120;
 const LIST_LIMIT = 200;
 
 export const useSessionsStore = defineStore("sessions", () => {
@@ -26,7 +25,6 @@ export const useSessionsStore = defineStore("sessions", () => {
       const res = await client().request<SessionsListResult>("sessions.list", {
         includeGlobal: true,
         includeUnknown: true,
-        activeMinutes: ACTIVE_MINUTES,
         limit: LIST_LIMIT,
       });
       sessions.value = res.sessions ?? [];

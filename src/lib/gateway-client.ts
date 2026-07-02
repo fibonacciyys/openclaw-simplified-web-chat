@@ -11,7 +11,10 @@ import type {
   ResponseFrame,
 } from "./types";
 
-const PROTOCOL_VERSION = 3;
+// Gateway protocol version (packages/gateway-protocol/src/version.ts).
+// v2026.6.x speaks v4; min and max are both 4 for a modern client.
+const PROTOCOL_VERSION = 4;
+const MIN_CLIENT_PROTOCOL_VERSION = 4;
 const OPERATOR_SCOPES = [
   "operator.admin",
   "operator.read",
@@ -238,7 +241,7 @@ export class GatewayClient {
       connectNonce: this.connectNonce,
     });
     const params: GatewayConnectParams = {
-      minProtocol: PROTOCOL_VERSION,
+      minProtocol: MIN_CLIENT_PROTOCOL_VERSION,
       maxProtocol: PROTOCOL_VERSION,
       client: {
         id: CLIENT_ID,

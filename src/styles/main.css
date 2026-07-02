@@ -414,3 +414,209 @@ body {
   color: var(--danger);
   font-size: 13px;
 }
+
+/* --- Tool cards --- */
+
+.tool-card {
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.tool-card--error {
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.tool-card__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.tool-card__summary:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.tool-card__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tool-card__label {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tool-card__preview {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-card__badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.tool-card__chevron {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.tool-card__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.tool-card__body {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-card__block-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.tool-card__block-content {
+  background: #1f2328;
+  color: #f7f7f8;
+  padding: 8px 10px;
+  border-radius: 6px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  max-height: 320px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tool-card__block-content code {
+  font-family: inherit;
+  background: none;
+  padding: 0;
+}
+
+.tool-card__empty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* --- Tool activity group (merged consecutive tool calls) --- */
+
+.tool-activity {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.tool-activity--error {
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.tool-activity__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.tool-activity__summary:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.tool-activity__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tool-activity__label {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tool-activity__preview {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-activity__badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.tool-activity__chevron {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.tool-activity__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.tool-activity__body {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Inside an activity group, inner tool cards rely on the body gap (no extra
+   per-card margin). */
+.tool-activity__body .tool-card {
+  margin: 0;
+}

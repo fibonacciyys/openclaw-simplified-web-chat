@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { useChatStore } from "../stores/chat";
+import { groupToolActivities } from "../lib/group-messages";
 import MessageItem from "./MessageItem.vue";
+import ToolActivityGroup from "./ToolActivityGroup.vue";
 import Composer from "./Composer.vue";
 
 const chat = useChatStore();
 const scrollEl = ref<HTMLElement | null>(null);
+
+const items = computed(() => groupToolActivities(chat.messages));
 
 const streamMessage = computed(() => ({
   role: "assistant",
@@ -37,11 +41,12 @@ watch(() => chat.sessionKey, scrollToBottom);
       <div v-if="chat.messages.length === 0 && !hasStream" class="messages-empty">
         Send a message to start the conversation.
       </div>
-      <MessageItem
-        v-for="(m, i) in chat.messages"
-        :key="i"
-        :message="m"
-      />
+      <template v-for="item in items" :key="item.key">
+        <div v-if="item.kind === 'tool-activity'" class="msg msg-assistant">
+          <ToolActivityGroup :messages="item.messages" />
+        </div>
+        <MessageItem v-else :message="item.message" />
+      </template>
       <MessageItem v-if="hasStream" :message="streamMessage" :streaming="true" />
     </div>
     <Composer />
