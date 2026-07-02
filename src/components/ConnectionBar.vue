@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useConnectionStore } from "../stores/connection";
+import { useProvidersStore } from "../stores/providers";
 
 const connection = useConnectionStore();
+const providers = useProvidersStore();
 const statusText = computed(() => {
   switch (connection.status) {
     case "connected":
@@ -40,6 +42,13 @@ const canConnect = computed(
     </div>
     <div class="bar-actions">
       <span class="status" :data-status="connection.status">{{ statusText }}</span>
+      <button
+        v-if="connection.status === 'connected'"
+        class="btn-secondary"
+        @click="providers.show()"
+      >
+        Providers
+      </button>
       <button
         v-if="connection.status !== 'connected'"
         class="btn-primary"

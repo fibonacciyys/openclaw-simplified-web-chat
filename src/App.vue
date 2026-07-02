@@ -4,6 +4,7 @@ import { useConnectionStore } from "./stores/connection";
 import ConnectionBar from "./components/ConnectionBar.vue";
 import SessionSidebar from "./components/SessionSidebar.vue";
 import ChatView from "./components/ChatView.vue";
+import ProviderModal from "./components/ProviderModal.vue";
 
 const connection = useConnectionStore();
 const connected = computed(() => connection.status === "connected");
@@ -28,5 +29,6 @@ onMounted(() => {
       <p>Connect to the OpenClaw gateway to start chatting.</p>
       <p v-if="connection.lastError" class="app-empty-error">{{ connection.lastError }}</p>
     </div>
+    <ProviderModal />
   </div>
 </template>
