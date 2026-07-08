@@ -1,7 +1,12 @@
 // Sessions store: list/create/subscribe gateway sessions.
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { SessionRow, SessionsCreateResult, SessionsListResult } from "../lib/types";
+import type {
+  SessionRow,
+  SessionsCreateResult,
+  SessionsDefaults,
+  SessionsListResult,
+} from "../lib/types";
 import { useConnectionStore } from "./connection";
 import { useChatStore } from "./chat";
 
@@ -9,6 +14,7 @@ const LIST_LIMIT = 200;
 
 export const useSessionsStore = defineStore("sessions", () => {
   const sessions = ref<SessionRow[]>([]);
+  const defaults = ref<SessionsDefaults | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -28,6 +34,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         limit: LIST_LIMIT,
       });
       sessions.value = res.sessions ?? [];
+      defaults.value = res.defaults ?? null;
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err);
     } finally {
@@ -69,5 +76,5 @@ export const useSessionsStore = defineStore("sessions", () => {
     await useChatStore().setSession(key);
   }
 
-  return { sessions, loading, error, load, subscribe, handleSessionsChanged, create, select };
+  return { sessions, defaults, loading, error, load, subscribe, handleSessionsChanged, create, select };
 });

@@ -202,9 +202,17 @@ export type SessionRow = {
   status?: "running" | "done" | "failed" | "killed" | "timeout";
   archived?: boolean;
   model?: string;
+  modelProvider?: string;
   derivedTitle?: string;
   lastMessagePreview?: string;
   agentRuntime?: { id?: string; fallback?: boolean; source?: string };
+};
+
+// Defaults echoed by sessions.list (src/shared/session-types.ts
+// SessionsListResultBase). Only the model fields this client renders.
+export type SessionsDefaults = {
+  model?: string | null;
+  modelProvider?: string | null;
 };
 
 export type SessionsListResult = {
@@ -212,6 +220,7 @@ export type SessionsListResult = {
   count?: number;
   totalCount?: number;
   hasMore?: boolean;
+  defaults?: SessionsDefaults;
   sessions: SessionRow[];
 };
 
@@ -229,4 +238,35 @@ export type SessionsCreateResult = {
   key?: string;
   sessionId?: string;
   runStarted?: boolean;
+};
+
+// sessions.patch with `model` sets/clears the per-session model override.
+// `model: null` clears it so the session falls back to defaults. Mirrors
+// packages/gateway-protocol/src/index.ts SessionsPatchResult.
+export type SessionsPatchResult = {
+  ok: true;
+  path: string;
+  key: string;
+  entry?: Record<string, unknown>;
+  resolved?: {
+    modelProvider?: string;
+    model?: string;
+    agentRuntime?: { id?: string; fallback?: string; source?: string };
+  };
+};
+
+// Model catalog entry returned by models.list (view: "configured").
+// Mirrors packages/gateway-protocol/src/schema/agents-models-skills.ts
+// ModelChoiceSchema / ui/src/ui/types.ts ModelCatalogEntry.
+export type ModelCatalogEntry = {
+  id: string;
+  name: string;
+  provider: string;
+  alias?: string;
+  contextWindow?: number;
+  reasoning?: boolean;
+};
+
+export type ModelsListResult = {
+  models: ModelCatalogEntry[];
 };

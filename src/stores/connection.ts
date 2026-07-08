@@ -6,6 +6,7 @@ import { GatewayClient, type GatewayCloseInfo } from "../lib/gateway-client";
 import type { EventFrame, GatewayHelloOk } from "../lib/types";
 import { useSessionsStore } from "./sessions";
 import { useChatStore } from "./chat";
+import { useModelsStore } from "./models";
 
 const SETTINGS_KEY = "openclaw-webchat-settings-v1";
 
@@ -85,9 +86,13 @@ export const useConnectionStore = defineStore("connection", () => {
     lastError.value = null;
     const sessions = useSessionsStore();
     const chat = useChatStore();
+    const models = useModelsStore();
     // Load the session index first, then resolve which session to render.
     await sessions.load();
     void sessions.subscribe();
+    // Fetch the configured model catalog so the per-session model picker
+    // has options without blocking the initial transcript render.
+    void models.loadCatalog();
     const current = chat.sessionKey;
     const exists = sessions.sessions.some((s) => s.key === current);
     if (exists || sessions.sessions.length === 0) {

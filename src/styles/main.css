@@ -242,9 +242,50 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
+}
+
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.model-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.model-select-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.model-select-input {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  background: #fff;
+  color: var(--text);
+  font-family: var(--mono);
+  max-width: 260px;
+}
+
+.model-select-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.model-select-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .chat-title {
@@ -252,6 +293,8 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .chat-busy {
