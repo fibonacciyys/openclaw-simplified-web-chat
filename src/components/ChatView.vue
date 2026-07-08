@@ -48,7 +48,7 @@ async function onModelChange(event: Event) {
           <select
             class="model-select-input"
             :value="models.currentModelValue"
-            :disabled="models.switching || chat.isBusy || models.options.length <= 1"
+            :disabled="models.switching || models.options.length <= 1"
             @change="onModelChange"
           >
             <option v-for="opt in models.options" :key="opt.value" :value="opt.value">

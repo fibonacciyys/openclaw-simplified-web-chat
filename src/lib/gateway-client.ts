@@ -22,7 +22,13 @@ const OPERATOR_SCOPES = [
   "operator.approvals",
   "operator.pairing",
 ];
-const CLIENT_ID = "webchat";
+// Connect as the Control UI identity so the gateway's webchat session-mutation
+// guard (src/gateway/server-methods/sessions.ts rejectWebchatSessionMutation)
+// exempts this client via `client.id === CONTROL_UI`. That allows direct
+// sessions.patch for per-session model selection (like the control UI) instead
+// of routing through the /model slash command. Mirrors ui/src/ui/gateway.ts:696.
+// Mode stays "webchat" to match the control UI's default connect mode.
+const CLIENT_ID = "openclaw-control-ui";
 const CLIENT_MODE = "webchat";
 const CLIENT_VERSION = "0.1.0";
 const CONNECT_QUEUE_MS = 750;
