@@ -155,6 +155,12 @@ export const useModelsStore = defineStore("models", () => {
     try {
       await chat.send(cmd);
       await waitForRunIdle();
+      // The /model run is done server-side, but its sessions.changed may fire
+      // before the model is persisted (or not at all for this command path),
+      // leaving the cached session row stale. Force-refresh so the picker
+      // reflects the new model immediately instead of waiting for the next
+      // session mutation.
+      await useSessionsStore().load();
     } catch (err) {
       error.value = `Failed to set model: ${errorMessage(err)}`;
     } finally {
