@@ -190,30 +190,28 @@ here): `key`, `agentId`, `label`, `model`, `parentSessionKey`, `message`.
 Opts the connection into `sessions.changed` events. Called once after the
 initial `sessions.list` in `handleHello`.
 
-### `sessions.patch` (per-session model override)
+### `sessions.patch` — forbidden for webchat clients
 
-This is the core of the per-conversation model feature
-(`packages/gateway-protocol/src/schema/sessions.ts:299`,
-`ui/src/ui/chat/session-controls.ts:1371`).
+`sessions.patch` is the canonical per-session model override RPC used by the
+control UI (`packages/gateway-protocol/src/schema/sessions.ts:299`,
+`ui/src/ui/chat/session-controls.ts:1371`):
 
 ```jsonc
-// set a model for this session
 { "method": "sessions.patch", "params": { "key": "<sessionKey>", "model": "anthropic/claude-sonnet-4-6" } }
-// clear the override → fall back to defaults.model
-{ "method": "sessions.patch", "params": { "key": "<sessionKey>", "model": null } }
-// res
-{ "ok": true, "path": "...", "key": "<sessionKey>", "entry": { ... },
-  "resolved": { "model": "claude-sonnet-4-6", "modelProvider": "anthropic" } }
+{ "method": "sessions.patch", "params": { "key": "<sessionKey>", "model": null } }   // clear → default
 ```
 
-- `model: string` sets the override; `model: null` clears it.
-- `resolved` echoes the authoritative provider-qualified model the server
-  will use, which may differ from the requested id (alias resolution,
-  provider inference from the catalog).
-- Client flow (`src/stores/models.ts:setModel`): write an optimistic
-  per-session override → `sessions.patch` → on success reload
-  `sessions.list` and drop the override (the fresh row is authoritative) →
-  on failure roll the override back and surface the error.
+**This client cannot use it.** The gateway rejects `sessions.patch` (and
+`delete`/`compact`/`restore`) from any `webchat`-mode client except the
+control UI itself
+(`src/gateway/server-methods/sessions.ts:326` `rejectWebchatSessionMutation`):
+
+> `webchat clients cannot patch sessions; use chat.send for session-scoped updates`
+
+So per-conversation model selection here goes through `chat.send` with the
+`/model` slash command instead (see §6). `sessions.patch` remains documented
+above because it is the wire contract the session row's `model` field
+reflects, and because `sessions.list` still reads the override it persists.
 
 ## 5. Chat protocol
 
@@ -297,8 +295,9 @@ never clobbered mid-flight. Events for other session keys are ignored.
 
 ## 6. Model selection protocol
 
-Per-conversation model selection reuses §4 `sessions.patch` for the write
-path and a dedicated catalog RPC for the option list. Client store:
+Per-conversation model selection reads the catalog via `models.list` and
+writes via the `/model` slash command through `chat.send` (see §4 for why
+`sessions.patch` is unavailable to webchat clients). Client store:
 `src/stores/models.ts`.
 
 ### `models.list`
@@ -319,15 +318,18 @@ the picker and refreshes it on connect.
 
 ### Current model resolution
 
-The picker value is resolved in priority order
-(`src/stores/models.ts:currentModelValue`, mirroring
-`ui/src/ui/chat-model-select-state.ts`):
+The picker value is resolved in `src/stores/models.ts:currentModelValue`
+from the session row + defaults (no optimistic cache — the picker stays
+disabled until the `/model` run finalizes, then the `sessions.changed`
+reload drives the new value):
 
-1. Optimistic override for this `sessionKey` (`string` = set, `null` =
-   cleared-to-default) — keeps the UI in sync during the RPC round-trip.
-2. The session row's `model` from `sessions.list`.
-3. `defaults.model` from `sessions.list`.
-4. Empty string → the "Default" option.
+1. The session row's `model` from `sessions.list`.
+2. `defaults.model` from `sessions.list`.
+3. Empty string → the "Default" option.
+
+An explicit override equal to `defaults.model` is treated as "Default"
+(matching the control UI's `sessionModelMatchesDefaults` intent), so
+`/model <default>` resets the picker to "Default".
 
 ### Option list
 
@@ -336,13 +338,25 @@ each catalog entry. If the resolved current model is neither default nor in
 the catalog (e.g. a provider-qualified ref the server returned), it is
 appended so the select always shows a valid current value.
 
-### Write path
+### Write path — `/model` via `chat.send`
 
-Selecting an option calls `setModel(value)`:
-- value `""` → `sessions.patch { key, model: null }` (clear override).
-- value `<id>` → `sessions.patch { key, model: <id> }`.
+Selecting an option calls `setModel(value)`, which sends the `/model` slash
+command as a normal chat message (`src/stores/models.ts:setModel`):
 
-See §4 for the optimistic update / rollback / refresh contract.
+- value `<id>` → `chat.send({ message: "/model <id>", … })`.
+- value `""` (Default) → `chat.send({ message: "/model <defaults.model>", … })`
+  (no-op if `defaults.model` is unset). The `/model` command has no
+  clear-override syntax, so "Default" is implemented by setting the session
+  model to the configured default ref.
+
+The gateway interprets the `/`-prefixed message as a native slash command
+(`src/auto-reply/reply/get-reply-native-slash-fast-path.ts`), persists the
+selection server-side, replies with a short confirmation (visible in the
+transcript), and emits `sessions.changed` → the sessions store reloads →
+the row's `model` drives the picker. Because `chat.send` resolves on the
+ack (not on run completion), `setModel` awaits `chat.isBusy` going idle
+before re-enabling the picker. The picker is also disabled during any
+active run, since the gateway will not run a second concurrent turn.
 
 ## 7. Config protocol (provider management)
 
@@ -410,13 +424,17 @@ first transcript.
 ## 9. Concurrency and correctness invariants
 
 - **One active run per session**: `chat.send` is gated by `isBusy`
-  (`chatSending || chatRunId != null`); a second send is ignored.
-- **Optimistic overrides are per-session** and scoped to the active key, so
-  switching sessions never shows a stale in-flight model.
+  (`chatSending || chatRunId != null`); a second send is ignored. The model
+  picker is also disabled while a run is active, since the gateway will not
+  run a concurrent `/model` turn.
+- **Model switch is a real run**: selecting a model sends `/model` via
+  `chat.send`, so it occupies the same single-run slot as a normal message.
+  `setModel` awaits `chat.isBusy` going idle before re-enabling the picker,
+  so the `sessions.changed` reload (not a client-side override) drives the
+  new value.
 - **`sessions.changed` → full reload**: the client reloads the whole index
   rather than patching rows locally, so server-side model/label/status
-  changes are always authoritative. The optimistic override is dropped
-  immediately after a successful model patch + reload.
+  changes are always authoritative.
 - **Stream vs. history race**: `session.message` reloads history only when
   no run is active, and only for the active session, preventing the live
   stream from being replaced mid-flight.

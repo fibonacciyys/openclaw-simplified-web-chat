@@ -1,24 +1,28 @@
-// Models store: per-session model selection.
+// Models store: per-session model selection for webchat clients.
 //
-// Mirrors the control UI flow (ui/src/ui/chat/session-controls.ts
-// switchChatModel + ui/src/ui/controllers/models.ts loadModels):
-//   - models.list { view: "configured" } returns the configured model catalog.
-//   - sessions.list echoes per-session `model` + `defaults.model`.
-//   - sessions.patch { key, model } sets (string) or clears (null) the
-//     per-session model override; clearing falls back to the default.
+// The gateway forbids webchat clients from calling sessions.patch
+// (src/gateway/server-methods/sessions.ts rejectWebchatSessionMutation —
+// "webchat clients cannot patch sessions; use chat.send for session-scoped
+// updates"). Only the control UI is exempt. So this client changes the
+// per-session model by sending the `/model <id>` slash command through
+// chat.send; the gateway interprets it as a native slash command
+// (src/auto-reply/reply/get-reply-native-slash-fast-path.ts), persists the
+// selection server-side, replies with a confirmation, and emits
+// sessions.changed (which the sessions store already reloads on).
 //
-// The select stays in sync via an optimistic per-session override cache that
-// is rolled back on RPC failure and dropped once sessions.list refreshes the
-// authoritative row.
+// Catalog source: models.list { view: "configured" } (mirrors
+// ui/src/ui/controllers/models.ts). Current model source: the session row's
+// `model` from sessions.list, falling back to `defaults.model`.
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
-import type { ModelCatalogEntry, ModelsListResult, SessionsPatchResult } from "../lib/types";
+import { computed, ref, watch } from "vue";
+import type { ModelCatalogEntry, ModelsListResult } from "../lib/types";
 import { useChatStore } from "./chat";
 import { useConnectionStore } from "./connection";
 import { useSessionsStore } from "./sessions";
 
-// Sentinel value used by the <select> option that clears the per-session
-// override so the session falls back to the configured default model.
+// Sentinel value used by the <select> option that maps to "use the configured
+// default model". The `/model` slash command has no clear-override syntax, so
+// "Default" is implemented by setting the session model to `defaults.model`.
 const DEFAULT_MODEL_VALUE = "";
 
 function errorMessage(err: unknown): string {
@@ -34,8 +38,6 @@ export const useModelsStore = defineStore("models", () => {
   const loading = ref(false);
   const switching = ref(false);
   const error = ref<string | null>(null);
-  // Optimistic per-session override: string = set, null = cleared to default.
-  const overrides = ref<Record<string, string | null>>({});
 
   function client() {
     const c = useConnectionStore().getClient();
@@ -61,18 +63,16 @@ export const useModelsStore = defineStore("models", () => {
   const currentModelValue = computed<string>(() => {
     const chat = useChatStore();
     const sessions = useSessionsStore();
-    const key = chat.sessionKey;
-    if (key in overrides.value) {
-      const override = overrides.value[key];
-      return override ?? DEFAULT_MODEL_VALUE;
-    }
-    const row = sessions.sessions.find((s) => s.key === key);
-    return row?.model ?? sessions.defaults?.model ?? DEFAULT_MODEL_VALUE;
+    const row = sessions.sessions.find((s) => s.key === chat.sessionKey);
+    const dm = sessions.defaults?.model ?? null;
+    const model = row?.model ?? dm ?? DEFAULT_MODEL_VALUE;
+    // Treat an explicit override equal to the default as "default" so the
+    // picker shows "Default" after `/model <default>` (matches the control
+    // UI's sessionModelMatchesDefaults intent).
+    return dm && model === dm ? DEFAULT_MODEL_VALUE : model;
   });
 
-  const isDefault = computed(
-    () => currentModelValue.value === DEFAULT_MODEL_VALUE,
-  );
+  const isDefault = computed(() => currentModelValue.value === DEFAULT_MODEL_VALUE);
 
   // Select <option> list: a "Default" entry first, then catalog entries. The
   // current model is appended when it is not the default and not in the
@@ -106,37 +106,56 @@ export const useModelsStore = defineStore("models", () => {
       : entry.id;
   }
 
+  // Build the `/model` command text for a picker value. Returns null when the
+  // requested action is a no-op (e.g. "Default" with no configured default).
+  function buildModelCommand(next: string): string | null {
+    const sessions = useSessionsStore();
+    const requested = next.trim();
+    if (!requested) {
+      const dm = sessions.defaults?.model;
+      return dm ? `/model ${dm}` : null;
+    }
+    return `/model ${requested}`;
+  }
+
+  // Resolves once the chat store's active run goes idle. chat.send resolves
+  // on the ack, but the `/model` command run continues until its `final`
+  // chat event; the picker stays disabled until then so the reloaded session
+  // row (after sessions.changed) drives the new value.
+  function waitForRunIdle(): Promise<void> {
+    const chat = useChatStore();
+    return new Promise((resolve) => {
+      if (!chat.isBusy) {
+        resolve();
+        return;
+      }
+      const stop = watch(
+        () => chat.isBusy,
+        (busy) => {
+          if (!busy) {
+            stop();
+            resolve();
+          }
+        },
+      );
+    });
+  }
+
   async function setModel(next: string): Promise<void> {
     const chat = useChatStore();
-    const sessions = useSessionsStore();
-    const key = chat.sessionKey;
-    const requested = next.trim();
-    // Clearing to default: send null so the server drops the override.
-    const patchModel = requested === DEFAULT_MODEL_VALUE ? null : requested;
-    const prev = overrides.value[key];
-    overrides.value = { ...overrides.value, [key]: patchModel };
+    const cmd = buildModelCommand(next);
+    if (!cmd) return;
+    if (chat.isBusy) {
+      // The gateway won't run a second concurrent turn; don't even try.
+      error.value = "Cannot switch model while a run is active";
+      return;
+    }
     switching.value = true;
     error.value = null;
     try {
-      await client().request<SessionsPatchResult>("sessions.patch", {
-        key,
-        model: patchModel,
-      });
-      // Refresh the session index so the row's authoritative model field
-      // drives the select, then drop the now-redundant optimistic override.
-      await sessions.load();
-      const next2 = { ...overrides.value };
-      delete next2[key];
-      overrides.value = next2;
+      await chat.send(cmd);
+      await waitForRunIdle();
     } catch (err) {
-      // Roll back so the select reflects the actual server model.
-      const rollback = { ...overrides.value };
-      if (prev === undefined) {
-        delete rollback[key];
-      } else {
-        rollback[key] = prev;
-      }
-      overrides.value = rollback;
       error.value = `Failed to set model: ${errorMessage(err)}`;
     } finally {
       switching.value = false;
