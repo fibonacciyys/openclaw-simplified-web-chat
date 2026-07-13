@@ -255,19 +255,20 @@ body {
   flex-shrink: 0;
 }
 
-.model-select {
+/* Shared chat-header select styling for the model + thinking pickers. */
+.chat-select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
 }
 
-.model-select-label {
+.chat-select-label {
   color: var(--text-muted);
   font-weight: 600;
 }
 
-.model-select-input {
+.chat-select-input {
   padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -278,14 +279,19 @@ body {
   max-width: 260px;
 }
 
-.model-select-input:focus {
+.chat-select-input:focus {
   outline: none;
   border-color: var(--primary);
 }
 
-.model-select-input:disabled {
+.chat-select-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Thinking picker is narrower than the model picker. */
+.thinking-select .chat-select-input {
+  max-width: 150px;
 }
 
 .chat-title {

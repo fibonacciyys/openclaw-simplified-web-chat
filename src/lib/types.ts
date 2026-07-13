@@ -189,6 +189,13 @@ export type ChatHistoryResult = {
   verboseLevel?: string;
 };
 
+// Thinking-level option exposed by the gateway per session row / defaults.
+// Mirrors src/shared/session-types.ts GatewayThinkingLevelOption.
+export type ThinkingLevelOption = {
+  id: string;
+  label: string;
+};
+
 // --- Sessions ---
 
 export type SessionRow = {
@@ -206,13 +213,25 @@ export type SessionRow = {
   derivedTitle?: string;
   lastMessagePreview?: string;
   agentRuntime?: { id?: string; fallback?: boolean; source?: string };
+  // Per-session thinking override (string) or cleared (null/undefined means
+  // inherit the configured/provider default). Mirrors
+  // src/gateway/session-utils.types.ts GatewaySessionRow.thinkingLevel.
+  thinkingLevel?: string | null;
+  // Profile-driven level set for the row's current model. When absent the
+  // client falls back to base levels (see lib/thinking.ts).
+  thinkingLevels?: ThinkingLevelOption[];
+  thinkingOptions?: string[];
+  thinkingDefault?: string;
 };
 
 // Defaults echoed by sessions.list (src/shared/session-types.ts
-// SessionsListResultBase). Only the model fields this client renders.
+// SessionsListResultBase). Only the model + thinking fields this client renders.
 export type SessionsDefaults = {
   model?: string | null;
   modelProvider?: string | null;
+  thinkingLevels?: ThinkingLevelOption[];
+  thinkingOptions?: string[];
+  thinkingDefault?: string;
 };
 
 export type SessionsListResult = {

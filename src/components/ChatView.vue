@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { useChatStore } from "../stores/chat";
 import { useModelsStore } from "../stores/models";
+import { useThinkingStore } from "../stores/thinking";
 import { groupToolActivities } from "../lib/group-messages";
 import MessageItem from "./MessageItem.vue";
 import ToolActivityGroup from "./ToolActivityGroup.vue";
@@ -9,6 +10,7 @@ import Composer from "./Composer.vue";
 
 const chat = useChatStore();
 const models = useModelsStore();
+const thinking = useThinkingStore();
 const scrollEl = ref<HTMLElement | null>(null);
 
 const items = computed(() => groupToolActivities(chat.messages));
@@ -36,6 +38,11 @@ async function onModelChange(event: Event) {
   const value = (event.target as HTMLSelectElement).value;
   await models.setModel(value);
 }
+
+async function onThinkingChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  await thinking.setThinking(value);
+}
 </script>
 
 <template>
@@ -43,15 +50,32 @@ async function onModelChange(event: Event) {
     <header class="chat-header">
       <span class="chat-title" :title="chat.sessionKey">{{ chat.sessionKey }}</span>
       <div class="chat-header-right">
-        <label class="model-select" :title="models.isDefault ? 'Using default model' : 'Per-session model'">
-          <span class="model-select-label">Model</span>
+        <label class="chat-select" :title="models.isDefault ? 'Using default model' : 'Per-session model'">
+          <span class="chat-select-label">Model</span>
           <select
-            class="model-select-input"
+            class="chat-select-input"
             :value="models.currentModelValue"
             :disabled="models.switching || models.options.length <= 1"
             @change="onModelChange"
           >
             <option v-for="opt in models.options" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </label>
+        <label
+          class="chat-select thinking-select"
+          :title="thinking.isInherited ? 'Using inherited thinking level' : 'Per-session thinking level'"
+        >
+          <span class="chat-select-label">Thinking</span>
+          <select
+            class="chat-select-input"
+            :value="thinking.currentValue"
+            :disabled="thinking.switching || thinking.options.length === 0"
+            @change="onThinkingChange"
+          >
+            <option :value="''">{{ thinking.defaultLabel }}</option>
+            <option v-for="opt in thinking.options" :key="opt.value" :value="opt.value">
               {{ opt.label }}
             </option>
           </select>
@@ -73,6 +97,7 @@ async function onModelChange(event: Event) {
     </div>
     <Composer />
     <div v-if="models.error" class="chat-error">{{ models.error }}</div>
+    <div v-else-if="thinking.error" class="chat-error">{{ thinking.error }}</div>
     <div v-else-if="chat.lastError" class="chat-error">{{ chat.lastError }}</div>
   </div>
 </template>
