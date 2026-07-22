@@ -9,6 +9,7 @@ import type {
 } from "../lib/types";
 import { useConnectionStore } from "./connection";
 import { useChatStore } from "./chat";
+import { useWorkspaceStore } from "./workspace";
 
 const LIST_LIMIT = 200;
 
@@ -76,5 +77,45 @@ export const useSessionsStore = defineStore("sessions", () => {
     await useChatStore().setSession(key);
   }
 
-  return { sessions, defaults, loading, error, load, subscribe, handleSessionsChanged, create, select };
+  /**
+   * Delete a session via the gateway's `sessions.delete` RPC. The transcript
+   * is deleted along with the record (deleteTranscript: true) so the chat
+   * view clears. If the deleted session was the current one, switch to a
+   * different session (the next remaining one, or create a fresh one if the
+   * list is now empty) so the chat view doesn't point at a now-missing key.
+   * Also drops any run↔session bindings that pointed at this session from
+   * `.prose/runs/sessions.json` so the sidecar index doesn't accumulate
+   * stale entries. Always reloads the session index after.
+   */
+  async function del(key: string): Promise<boolean> {
+    try {
+      await client().request("sessions.delete", { key, deleteTranscript: true });
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : String(err);
+      return false;
+    }
+    // Drop the run↔session binding pointing at the deleted session (if any).
+    // The run itself stays on disk; selecting it in the prose sidebar will
+    // leave runSessionKey unset. Returns the unbound runId, unused here.
+    try {
+      await useWorkspaceStore().removeRunSessionForSession(key);
+    } catch {
+      // workspace not connected or map file missing — non-fatal
+    }
+    await load();
+    const chat = useChatStore();
+    if (chat.sessionKey === key) {
+      // Pick the first remaining session, or start a fresh one if none left.
+      const next = sessions.value[0]?.key;
+      if (next) {
+        await chat.setSession(next);
+      } else {
+        const fresh = await create();
+        if (fresh) await chat.setSession(fresh);
+      }
+    }
+    return true;
+  }
+
+  return { sessions, defaults, loading, error, load, subscribe, handleSessionsChanged, create, select, del };
 });

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prose Flow Demo</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      // Pretend the gateway handshake succeeded so the Prose view is allowed to
+      // render in this offline harness. We only need a non-null connection;
+      // the canvas itself never talks to the gateway.
+      window.__OPENCLAW_MOCK_CONNECTION__ = true;
+    </script>
+    <script type="module" src="/src/demo-main.ts"></script>
+  </body>
+</html>
