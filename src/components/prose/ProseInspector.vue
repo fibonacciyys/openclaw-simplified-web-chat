@@ -74,6 +74,9 @@ function addElif(): void {
 function addElse(): void {
   if (data.value) store.addElse(data.value.id);
 }
+function insertAfter(kind: ProseNodeKind): void {
+  if (data.value) store.insertAfter(data.value.id, kind);
+}
 function del(): void {
   if (data.value) store.removeNode(data.value.id);
 }
@@ -95,6 +98,14 @@ const skillsText = computed({
         <button class="btn-danger-sm" @click="del">Delete</button>
       </div>
       <div class="prose-inspector__hint">id: {{ data.id }}</div>
+
+      <div class="prose-inspector__sub">Insert after (sibling)</div>
+      <div class="prose-toolbar__right">
+        <button class="btn-secondary btn-sm" @click="insertAfter('input')">+ input</button>
+        <button class="btn-secondary btn-sm" @click="insertAfter('output')">+ output</button>
+        <button class="btn-secondary btn-sm" @click="insertAfter('session')">+ session</button>
+        <button class="btn-secondary btn-sm" @click="insertAfter('assign')">+ assign</button>
+      </div>
 
       <!-- use -->
       <template v-if="data.kind === 'use'">

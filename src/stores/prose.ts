@@ -214,6 +214,15 @@ export const useProseStore = defineStore("prose", () => {
     return addNode("else", { parentId, slot: anchor.slot, afterId: tail.id });
   }
 
+  /** Insert a new node as a sibling right after `afterId` (same parent + slot),
+   *  shifting later siblings. Lets the user drop a statement between two
+   *  existing nodes instead of only appending to a body's end. */
+  function insertAfter(afterId: string, kind: ProseNodeKind): ProseNodeData | null {
+    const anchor = nodes.value.find((n) => n.id === afterId);
+    if (!anchor) return null;
+    return addNode(kind, { parentId: anchor.parentId, slot: anchor.slot, afterId });
+  }
+
   function selectNode(id: string | null): void {
     selectedNodeId.value = id;
   }
@@ -306,6 +315,7 @@ export const useProseStore = defineStore("prose", () => {
     setNodes,
     addElif,
     addElse,
+    insertAfter,
     selectNode,
     clear,
     loadProse,

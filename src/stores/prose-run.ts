@@ -80,6 +80,11 @@ export const useProseRunStore = defineStore("prose-run", () => {
   const subSessions = ref<Map<string, SubSessionStream>>(new Map());
   const runsHistory = ref<RunHistoryEntry[]>([]);
 
+  // Save-only status, kept separate from runState so saving a file doesn't
+  // disturb the run lifecycle. Idle unless the user clicks Save.
+  const saveState = ref<"idle" | "saving" | "done" | "error">("idle");
+  const saveError = ref<string | null>(null);
+
   // Draft + viewing state for the left runs sidebar. The in-progress editor
   // program is the "draft"; selecting a past run loads its program into the
   // canvas (replacing the draft), and selecting the draft restores it. This
@@ -340,6 +345,41 @@ export const useProseRunStore = defineStore("prose-run", () => {
     }
   }
 
+  /** Write the .prose program to the workspace's prose/ subdirectory without
+   *  running it. Requires a connected workspace (File System Access API) for a
+   *  direct browser write; without it the user should use Run in chat, which
+   *  can delegate the write to the agent. */
+  async function saveProse(fileName: string): Promise<void> {
+    saveError.value = null;
+    if (!fileName.trim()) {
+      saveState.value = "error";
+      saveError.value = "Enter the .prose file name.";
+      return;
+    }
+    if (!workspace.connected) {
+      saveState.value = "error";
+      saveError.value = "Connect the workspace first to save files.";
+      return;
+    }
+    saveState.value = "saving";
+    try {
+      const ok = await workspace.writeNested([PROSE_DIR, fileName], prose.prose);
+      if (!ok) {
+        saveState.value = "error";
+        saveError.value = "Write failed.";
+        return;
+      }
+      saveState.value = "done";
+      lastFileName.value = fileName;
+      setTimeout(() => {
+        if (saveState.value === "done") saveState.value = "idle";
+      }, 1500);
+    } catch (err) {
+      saveState.value = "error";
+      saveError.value = errorMessage(err);
+    }
+  }
+
   async function startRun(fileName: string): Promise<void> {
     return launch(fileName, "start");
   }
@@ -475,6 +515,9 @@ export const useProseRunStore = defineStore("prose-run", () => {
     draftFileName,
     viewingRunId,
     isViewingRun,
+    saveState,
+    saveError,
+    saveProse,
     startRun,
     continueRun,
     continueFromHistory,

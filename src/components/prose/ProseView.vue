@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useProseStore } from "../../stores/prose";
 import { useProseRunStore } from "../../stores/prose-run";
 import { useConnectionStore } from "../../stores/connection";
@@ -26,6 +26,21 @@ onMounted(async () => {
   await workspace.restore();
   if (workspace.connected) await run.refresh();
 });
+
+// Delete the selected node on the Delete key. Ignored while focus is in an
+// input/textarea/contenteditable so the key edits text instead of nodes.
+function onKeydown(e: KeyboardEvent): void {
+  if (e.key !== "Delete") return;
+  const el = document.activeElement;
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable)) return;
+  const id = store.selectedNodeId;
+  if (!id) return;
+  e.preventDefault();
+  store.removeNode(id);
+}
+
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function add(kind: ProseNodeKind): void {
   store.addNode(kind);
@@ -278,6 +293,10 @@ async function continueRun(): Promise<void> {
   if (run.runState !== "error") emit("run-in-chat");
 }
 
+async function saveProse(): Promise<void> {
+  await run.saveProse(fileName.value.trim() || "program.prose");
+}
+
 function stop(): void {
   run.stop();
 }
@@ -358,6 +377,9 @@ function stop(): void {
               <input class="input" v-model="fileName" :disabled="run.runState === 'running'" />
             </label>
             <div class="prose-run__actions">
+              <button class="btn-secondary" :disabled="!workspace.connected || run.saveState === 'saving'" @click="saveProse" :title="workspace.connected ? '把程序写入 workspace 的 prose/ 子目录（不运行）' : '连接 workspace 后才能保存'">
+                {{ run.saveState === 'saving' ? 'Saving...' : run.saveState === 'done' ? 'Saved ✓' : 'Save' }}
+              </button>
               <button class="btn-primary" :disabled="run.runState === 'running' || connection.status !== 'connected'" @click="startRun">
                 {{ run.runState === 'running' ? 'Running...' : 'Run in chat' }}
               </button>
@@ -376,6 +398,7 @@ function stop(): void {
             </div>
 
             <div v-if="run.runError" class="wf-run__error">{{ run.runError }}</div>
+            <div v-if="run.saveError" class="wf-run__error">{{ run.saveError }}</div>
 
             <!-- Active run's parsed state.md (structured per-block status). -->
             <div v-if="run.activeRunState" class="prose-run__section">
