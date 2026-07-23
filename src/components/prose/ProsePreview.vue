@@ -6,6 +6,7 @@ import { useProseStore } from "../../stores/prose";
 // (paste/file) and export (download). The markdown is computed from the store
 // tree, so it updates on every edit. Validation issues surface inline.
 const store = useProseStore();
+const emit = defineEmits<{ (e: "imported", name: string): void }>();
 const prose = computed(() => store.prose);
 const issues = computed(() => store.issues);
 const copied = ref(false);
@@ -41,6 +42,7 @@ function onFile(ev: Event): void {
   if (!file) return;
   file.text().then((text) => {
     store.loadProse(text);
+    emit("imported", file.name);
     input.value = "";
   });
 }

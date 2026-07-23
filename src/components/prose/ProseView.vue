@@ -262,6 +262,12 @@ function onExample(ev: Event): void {
 
 const fileName = ref("program.prose");
 
+// When a .prose file is imported via the Preview tab, adopt its name so the
+// Run/Save targets match the file the user just opened.
+function onImported(name: string): void {
+  fileName.value = name;
+}
+
 // Sync the file-name input from the run store when a run is selected (or
 // restored as draft) so the displayed name matches the selected history
 // record. The user can still override the value before launching a new run;
@@ -347,7 +353,7 @@ function stop(): void {
         </div>
         <div class="wf-tab-body">
           <ProseInspector v-show="tab === 'inspect'" />
-          <ProsePreview v-show="tab === 'prose'" />
+          <ProsePreview v-show="tab === 'prose'" @imported="onImported" />
           <div v-show="tab === 'run'" class="prose-run-panel">
             <!-- Workspace connection (File System Access API): lets the browser
                  write the .prose file directly + read .prose/runs/<id>/state.md
